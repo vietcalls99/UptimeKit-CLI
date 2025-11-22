@@ -3,46 +3,33 @@ import chalk from 'chalk';
 
 export function registerDeleteCommand(program) {
   program
-    .command('delete [index]')
+    .command('delete <target>')
     .alias('del')
-    .description('Delete a monitor by number, name, or url')
-    .option('-n, --name <name>', 'Delete by custom name')
-    .option('-u, --url <url>', 'Delete by URL')
-    .action(async (index, options) => {
+    .description('Delete a monitor by id or name')
+    .action(async (target) => {
       await initDB();
-      let monitors = getMonitors();
-      let target;
+      const monitors = getMonitors();
+      let monitor = null;
 
-      if (!index && !options.name && !options.url) {
-        console.log(chalk.yellow('Usage: upkit del <number> or --name <name> or --url <url>'));
-        return;
+      const id = parseInt(target, 10);
+      if (!isNaN(id)) {
+        monitor = monitors.find(m => m.id === id);
+      } else {
+        monitor = monitors.find(m => m.name === target);
       }
 
-      if (options.name) {
-        target = monitors.find(m => m.name === options.name);
-      } else if (options.url) {
-        target = monitors.find(m => m.url === options.url);
-      } else if (index) {
-        let idx = parseInt(index, 10) - 1;
-        target = monitors[idx];
-      }
-
-      if (!target) {
-        console.log(chalk.red('Monitor not found. Usage: upkit del <number> or --name <name> or --url <url>'));
+      if (!monitor) {
+        console.log(chalk.red('Monitor not found.'));
         return;
       }
 
       try {
         const db = getDB();
-        db.prepare('DELETE FROM heartbeats WHERE monitor_id = ?').run(target.id);
-        const delStmt = db.prepare('DELETE FROM monitors WHERE id = ?');
-        delStmt.run(target.id);
+        db.prepare('DELETE FROM heartbeats WHERE monitor_id = ?').run(monitor.id);
+        db.prepare('DELETE FROM monitors WHERE id = ?').run(monitor.id);
+        console.log(chalk.green(`Deleted monitor: ${monitor.name || monitor.url}`));
       } catch (err) {
         console.error(chalk.red('Failed to delete monitor:'), err.message);
-        console.log('Delete command completed.');
-        return;
       }
-
-      console.log(chalk.green(`Deleted monitor: ${target.name || target.url}`));
     });
 }
