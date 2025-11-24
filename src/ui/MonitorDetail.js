@@ -122,7 +122,7 @@ export default function MonitorDetail({ idOrName }) {
     const historyBar = heartbeats.slice(0, 40).reverse().map((h, i) => {
         const up = h.status === 'up';
         return <Text key={i} color={up ? "green" : "red"}>{up ? "■" : "■"}</Text>;
-    }); S
+    });
 
     return (
         <Box flexDirection="column" padding={1} borderStyle="round" borderColor={statusColor} minHeight={20}>
