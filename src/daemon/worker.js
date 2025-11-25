@@ -19,9 +19,10 @@ async function checkMonitor(monitor) {
       }
       latency = Date.now() - start;
     } else if (monitor.type === 'icmp') {
+      const isWindows = process.platform === 'win32';
       const res = await ping.promise.probe(monitor.url, {
         timeout: 5,
-        extra: ['-n', '1']
+        extra: [isWindows ? '-n' : '-c', '1']
       });
       status = res.alive ? 'up' : 'down';
       latency = res.time === 'unknown' ? 0 : parseFloat(res.time) || 0;
