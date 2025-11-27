@@ -142,10 +142,10 @@ The `event` field will be either `monitor_up` or `monitor_down`.
 
 ```bash
 # Add monitor with webhook
-upkit add https://mysite.com -t http -n "My Site" -w https://webhook.site/your-id
+upkit add https://mysite.com -t http -n "My Site" -w https://yourwebhookurl.com/
 
 # Add webhook to existing monitor
-upkit edit 1 -w https://discord.com/api/webhooks/123/abc
+upkit edit 1 -w https://yourwebhookurl.com/
 
 # Remove webhook
 upkit edit 1 -w none
@@ -158,7 +158,7 @@ upkit edit 1 -w none
 upkit add https://mysite.com -t http -i 30 -n "My Website"
 
 # Monitor with webhook notifications
-upkit add https://mysite.com -t http -i 30 -n "My Website" -w https://webhook.site/your-webhook-id
+upkit add https://mysite.com -t http -i 30 -n "My Website" -w https://yourwebhookurl.com/
 
 # Ping Google DNS every 10 seconds
 upkit add 8.8.8.8 -t icmp -i 10 -n "Google DNS"
