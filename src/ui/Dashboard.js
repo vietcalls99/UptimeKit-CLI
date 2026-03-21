@@ -8,18 +8,57 @@ const MonitorTable = ({ monitors, title, titleColor = 'white' }) => {
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text bold color={titleColor} marginBottom={1}>{title}</Text>
+      <Text bold color={titleColor} marginBottom={1}>
+        {title}
+      </Text>
       <Box borderStyle="single" borderColor="gray" paddingX={1}>
-        <Box width="6%"><Text bold color="blue">#</Text></Box>
-        <Box width="20%"><Text bold color="blue">Name</Text></Box>
-        <Box width="22%"><Text bold color="blue">URL</Text></Box>
-        <Box width="8%"><Text bold color="blue">Type</Text></Box>
-        <Box width="10%"><Text bold color="blue">Status</Text></Box>
-        <Box width="10%"><Text bold color="blue">Latency</Text></Box>
-        <Box width="12%"><Text bold color="blue">Uptime (24h)</Text></Box>
-        <Box width="20%"><Text bold color="blue">Last Downtime</Text></Box>
+        <Box width="6%">
+          <Text bold color="blue">
+            #
+          </Text>
+        </Box>
+        <Box width="20%">
+          <Text bold color="blue">
+            Name
+          </Text>
+        </Box>
+        <Box width="22%">
+          <Text bold color="blue">
+            URL
+          </Text>
+        </Box>
+        <Box width="8%">
+          <Text bold color="blue">
+            Type
+          </Text>
+        </Box>
+        <Box width="10%">
+          <Text bold color="blue">
+            Status
+          </Text>
+        </Box>
+        <Box width="10%">
+          <Text bold color="blue">
+            Latency
+          </Text>
+        </Box>
+        <Box width="10%">
+          <Text bold color="blue">
+            Retries
+          </Text>
+        </Box>
+        <Box width="12%">
+          <Text bold color="blue">
+            Uptime (24h)
+          </Text>
+        </Box>
+        <Box width="20%">
+          <Text bold color="blue">
+            Last Downtime
+          </Text>
+        </Box>
       </Box>
-      {monitors.map((m) => {
+      {monitors.map(m => {
         let displayUrl = m.url;
         let displayName = m.name ? m.name : '';
         try {
@@ -38,10 +77,18 @@ const MonitorTable = ({ monitors, title, titleColor = 'white' }) => {
 
         return (
           <Box key={m.id} borderStyle="single" borderColor="gray" borderTop={false} paddingX={1}>
-            <Box width="6%"><Text>{m.id}</Text></Box>
-            <Box width="20%"><Text>{displayName}</Text></Box>
-            <Box width="22%"><Text>{displayUrl}</Text></Box>
-            <Box width="8%"><Text>{m.type}</Text></Box>
+            <Box width="6%">
+              <Text>{m.id}</Text>
+            </Box>
+            <Box width="20%">
+              <Text>{displayName}</Text>
+            </Box>
+            <Box width="22%">
+              <Text>{displayUrl}</Text>
+            </Box>
+            <Box width="8%">
+              <Text>{m.type}</Text>
+            </Box>
             <Box width="10%">
               <Text color={m.status === 'up' ? 'green' : 'red'} bold>
                 {m.status === 'up' ? '✔ UP' : '✖ DOWN'}
@@ -49,6 +96,9 @@ const MonitorTable = ({ monitors, title, titleColor = 'white' }) => {
             </Box>
             <Box width="10%">
               <Text color={m.latency > 500 ? 'yellow' : 'green'}>{m.latency}ms</Text>
+            </Box>
+            <Box width="10%">
+              <Text color={m.current_retries > 1 ? 'yellow' : 'green'}>{m.current_retries}</Text>
             </Box>
             <Box width="12%">
               <Text color={parseFloat(m.uptime) > 99 ? 'green' : 'yellow'}>{m.uptime}%</Text>
@@ -77,8 +127,7 @@ const Dashboard = ({ groupFilter = null }) => {
 
         const groupList = getGroups();
         setGroups(groupList);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchData();
@@ -115,7 +164,9 @@ const Dashboard = ({ groupFilter = null }) => {
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="cyan">
       <Box marginBottom={1}>
-        <Text bold color="cyan">UptimeKit Dashboard</Text>
+        <Text bold color="cyan">
+          UptimeKit Dashboard
+        </Text>
         {groupFilter && (
           <Box marginLeft={2}>
             <Text color="yellow">Group: {groupFilter}</Text>
@@ -137,7 +188,8 @@ const Dashboard = ({ groupFilter = null }) => {
           <Text color="gray">Available groups: </Text>
           {groups.map((g, idx) => (
             <Text key={g.group_name} color="cyan">
-              {g.group_name}{idx < groups.length - 1 ? ', ' : ''}
+              {g.group_name}
+              {idx < groups.length - 1 ? ', ' : ''}
             </Text>
           ))}
           <Text color="gray"> | Use </Text>
@@ -146,38 +198,58 @@ const Dashboard = ({ groupFilter = null }) => {
         </Box>
       )}
 
-
       {sortedGroupNames.map(groupName => (
-        <MonitorTable
-          key={groupName}
-          monitors={groupedMonitors[groupName]}
-          title={groupName}
-          titleColor="cyan"
-        />
+        <MonitorTable key={groupName} monitors={groupedMonitors[groupName]} title={groupName} titleColor="cyan" />
       ))}
 
       {ungroupedMonitors.length > 0 && (
-        <MonitorTable
-          monitors={ungroupedMonitors}
-          title="Uptime Monitors"
-          titleColor="white"
-        />
+        <MonitorTable monitors={ungroupedMonitors} title="Uptime Monitors" titleColor="white" />
       )}
 
       {/* SSL Monitors Table */}
       {sslMonitors.length > 0 && (
         <Box flexDirection="column">
-          <Text bold color="magenta" marginBottom={1}>SSL Certificate Monitors</Text>
+          <Text bold color="magenta" marginBottom={1}>
+            SSL Certificate Monitors
+          </Text>
           <Box borderStyle="single" borderColor="gray" paddingX={1}>
-            <Box width="6%"><Text bold color="magenta">#</Text></Box>
-            <Box width="19%"><Text bold color="magenta">Name</Text></Box>
-            <Box width="23%"><Text bold color="magenta">Host</Text></Box>
-            <Box width="14%"><Text bold color="magenta">Status</Text></Box>
-            <Box width="12%"><Text bold color="magenta">Days Left</Text></Box>
-            <Box width="16%"><Text bold color="magenta">Expires</Text></Box>
-            <Box width="20%"><Text bold color="magenta">Issuer</Text></Box>
+            <Box width="6%">
+              <Text bold color="magenta">
+                #
+              </Text>
+            </Box>
+            <Box width="19%">
+              <Text bold color="magenta">
+                Name
+              </Text>
+            </Box>
+            <Box width="23%">
+              <Text bold color="magenta">
+                Host
+              </Text>
+            </Box>
+            <Box width="14%">
+              <Text bold color="magenta">
+                Status
+              </Text>
+            </Box>
+            <Box width="12%">
+              <Text bold color="magenta">
+                Days Left
+              </Text>
+            </Box>
+            <Box width="16%">
+              <Text bold color="magenta">
+                Expires
+              </Text>
+            </Box>
+            <Box width="20%">
+              <Text bold color="magenta">
+                Issuer
+              </Text>
+            </Box>
           </Box>
-          {sslMonitors.map((m) => {
+          {sslMonitors.map(m => {
             let displayHost = m.url;
             let displayName = m.name ? m.name : '';
             try {
@@ -205,30 +277,64 @@ const Dashboard = ({ groupFilter = null }) => {
             let statusDisplay;
             if (m.status === 'up') {
               if (days !== null && days <= 7) {
-                statusDisplay = <Text color="red" bold>⚠ EXPIRING</Text>;
+                statusDisplay = (
+                  <Text color="red" bold>
+                    ⚠ EXPIRING
+                  </Text>
+                );
               } else if (days !== null && days <= 30) {
-                statusDisplay = <Text color="yellow" bold>⚠ WARNING</Text>;
+                statusDisplay = (
+                  <Text color="yellow" bold>
+                    ⚠ WARNING
+                  </Text>
+                );
               } else {
-                statusDisplay = <Text color="green" bold>✔ VALID</Text>;
+                statusDisplay = (
+                  <Text color="green" bold>
+                    ✔ VALID
+                  </Text>
+                );
               }
             } else {
-              statusDisplay = <Text color="red" bold>✖ INVALID</Text>;
+              statusDisplay = (
+                <Text color="red" bold>
+                  ✖ INVALID
+                </Text>
+              );
             }
 
             const expiryDate = ssl.validTo ? new Date(ssl.validTo).toLocaleDateString('en-US') : 'Unknown';
-            const issuer = ssl.issuer ? (ssl.issuer.length > 18 ? ssl.issuer.slice(0, 15) + '...' : ssl.issuer) : 'Unknown';
+            const issuer = ssl.issuer
+              ? ssl.issuer.length > 18
+                ? ssl.issuer.slice(0, 15) + '...'
+                : ssl.issuer
+              : 'Unknown';
 
             return (
               <Box key={m.id} borderStyle="single" borderColor="gray" borderTop={false} paddingX={1}>
-                <Box width="6%"><Text>{m.id}</Text></Box>
-                <Box width="19%"><Text>{displayName}</Text></Box>
-                <Box width="23%"><Text>{displayHost}</Text></Box>
+                <Box width="6%">
+                  <Text>{m.id}</Text>
+                </Box>
+                <Box width="19%">
+                  <Text>{displayName}</Text>
+                </Box>
+                <Box width="23%">
+                  <Text>{displayHost}</Text>
+                </Box>
                 <Box width="14%">{statusDisplay}</Box>
                 <Box width="12%">
-                  <Text color={daysColor} bold>{days !== null && days !== undefined ? `${days} days` : 'N/A'}</Text>
+                  <Text color={daysColor} bold>
+                    {days !== null && days !== undefined ? `${days} days` : 'N/A'}
+                  </Text>
                 </Box>
-                <Box width="16%"><Text color="gray">{expiryDate}</Text></Box>
-                <Box width="20%"><Text color="gray" dimColor>{issuer}</Text></Box>
+                <Box width="16%">
+                  <Text color="gray">{expiryDate}</Text>
+                </Box>
+                <Box width="20%">
+                  <Text color="gray" dimColor>
+                    {issuer}
+                  </Text>
+                </Box>
               </Box>
             );
           })}
@@ -237,7 +343,9 @@ const Dashboard = ({ groupFilter = null }) => {
 
       {monitors.length === 0 && (
         <Box marginTop={1} paddingX={1}>
-          <Text italic color="yellow">No monitors found. Run `uptimekit add` to add one.</Text>
+          <Text italic color="yellow">
+            No monitors found. Run `uptimekit add` to add one.
+          </Text>
         </Box>
       )}
     </Box>

@@ -13,7 +13,7 @@ export function registerClearCommand(program) {
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
       const answer = await new Promise(resolve => {
-        rl.question('This will delete all monitors and heartbeats. Are you sure? (y/n): ', (ans) => {
+        rl.question('This will delete all monitors and heartbeats. Are you sure? (y/n): ', ans => {
           rl.close();
           resolve(ans.trim().toLowerCase());
         });

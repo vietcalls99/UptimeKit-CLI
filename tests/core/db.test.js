@@ -79,7 +79,9 @@ beforeAll(async () => {
           throw new Error(`Monitor with name '${name}' already exists.`);
         }
       }
-      const stmt = db.prepare('INSERT INTO monitors (type, url, interval, name, webhook_url, group_name) VALUES (?, ?, ?, ?, ?, ?)');
+      const stmt = db.prepare(
+        'INSERT INTO monitors (type, url, interval, name, webhook_url, group_name) VALUES (?, ?, ?, ?, ?, ?)'
+      );
       return stmt.run(type, url, interval, name, webhookUrl, groupName);
     },
 
@@ -96,11 +98,26 @@ beforeAll(async () => {
       const fields = [];
       const values = [];
 
-      if (name !== undefined) { fields.push('name = ?'); values.push(name); }
-      if (url !== undefined) { fields.push('url = ?'); values.push(url); }
-      if (type !== undefined) { fields.push('type = ?'); values.push(type); }
-      if (interval !== undefined) { fields.push('interval = ?'); values.push(interval); }
-      if (webhook_url !== undefined) { fields.push('webhook_url = ?'); values.push(webhook_url); }
+      if (name !== undefined) {
+        fields.push('name = ?');
+        values.push(name);
+      }
+      if (url !== undefined) {
+        fields.push('url = ?');
+        values.push(url);
+      }
+      if (type !== undefined) {
+        fields.push('type = ?');
+        values.push(type);
+      }
+      if (interval !== undefined) {
+        fields.push('interval = ?');
+        values.push(interval);
+      }
+      if (webhook_url !== undefined) {
+        fields.push('webhook_url = ?');
+        values.push(webhook_url);
+      }
 
       if (fields.length === 0) return;
 
@@ -113,7 +130,7 @@ beforeAll(async () => {
       return db.prepare('SELECT * FROM monitors').all();
     },
 
-    getMonitorByIdOrName: (idOrName) => {
+    getMonitorByIdOrName: idOrName => {
       const s = String(idOrName || '').trim();
       if (!s) return null;
 
@@ -129,13 +146,15 @@ beforeAll(async () => {
       if (byUrl) return byUrl;
 
       const likePattern = `%${s}%`;
-      const fuzzy = db.prepare('SELECT * FROM monitors WHERE lower(name) LIKE lower(?) OR lower(url) LIKE lower(?) LIMIT 1').get(likePattern, likePattern);
+      const fuzzy = db
+        .prepare('SELECT * FROM monitors WHERE lower(name) LIKE lower(?) OR lower(url) LIKE lower(?) LIMIT 1')
+        .get(likePattern, likePattern);
       if (fuzzy) return fuzzy;
 
       return null;
     },
 
-    deleteMonitor: (id) => {
+    deleteMonitor: id => {
       return db.prepare('DELETE FROM monitors WHERE id = ?').run(id);
     },
 
@@ -145,7 +164,11 @@ beforeAll(async () => {
     },
 
     getHeartbeatsForMonitor: (monitorId, limit = 60) => {
-      return db.prepare('SELECT status, timestamp, latency FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT ?').all(monitorId, limit);
+      return db
+        .prepare(
+          'SELECT status, timestamp, latency FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT ?'
+        )
+        .all(monitorId, limit);
     },
 
     getNotificationSettings: () => {
@@ -153,7 +176,7 @@ beforeAll(async () => {
       return result ? result.value === '1' : true;
     },
 
-    setNotificationSettings: (enabled) => {
+    setNotificationSettings: enabled => {
       const value = enabled ? '1' : '0';
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('notifications_enabled', ?)").run(value);
       return true;
@@ -179,7 +202,7 @@ beforeAll(async () => {
       return stmt.run(monitorId, issuer, subject, validFrom, validTo, daysRemaining, serialNumber, fingerprint);
     },
 
-    getSSLCertificate: (monitorId) => {
+    getSSLCertificate: monitorId => {
       return db.prepare('SELECT * FROM ssl_certificates WHERE monitor_id = ?').get(monitorId);
     },
 
@@ -552,7 +575,7 @@ describe('Database Module', () => {
       testFunctions.upsertSSLCertificate(monitorId, certData1);
 
       const certData2 = {
-        issuer: 'Let\'s Encrypt',
+        issuer: "Let's Encrypt",
         subject: 'github.com',
         validFrom: '2024-06-01T00:00:00Z',
         validTo: '2025-06-01T00:00:00Z',

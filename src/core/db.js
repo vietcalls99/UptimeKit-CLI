@@ -26,6 +26,7 @@ export async function initDB() {
       url TEXT NOT NULL,
       port INTEGER,
       interval INTEGER NOT NULL,
+      retries INTEGER DEFAULT 0,
       webhook_url TEXT,
       group_name TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -36,6 +37,7 @@ export async function initDB() {
       monitor_id INTEGER NOT NULL,
       status TEXT NOT NULL,
       latency INTEGER,
+      retries INTEGER DEFAULT 0,
       timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (monitor_id) REFERENCES monitors (id) ON DELETE CASCADE
     );
@@ -60,21 +62,29 @@ export async function initDB() {
     );
   `);
 
-
   try {
-    const cols = db.prepare("PRAGMA table_info('monitors')").all();
+    const monitorCols = db.prepare("PRAGMA table_info('monitors')").all();
 
-
-    if (!cols.some(c => c.name === 'name')) {
+    if (!monitorCols.some(c => c.name === 'name')) {
       db.prepare('ALTER TABLE monitors ADD COLUMN name TEXT').run();
     }
 
-    if (!cols.some(c => c.name === 'webhook_url')) {
+    if (!monitorCols.some(c => c.name === 'webhook_url')) {
       db.prepare('ALTER TABLE monitors ADD COLUMN webhook_url TEXT').run();
     }
 
-    if (!cols.some(c => c.name === 'group_name')) {
+    if (!monitorCols.some(c => c.name === 'group_name')) {
       db.prepare('ALTER TABLE monitors ADD COLUMN group_name TEXT').run();
+    }
+
+    if (!monitorCols.some(c => c.name === 'retries')) {
+      db.prepare('ALTER TABLE monitors ADD COLUMN retries INTEGER DEFAULT 0').run();
+    }
+
+    const heartbeatCols = db.prepare("PRAGMA table_info('heartbeats')").all();
+
+    if (!heartbeatCols.some(c => c.name === 'retries')) {
+      db.prepare('ALTER TABLE heartbeats ADD COLUMN retries INTEGER').run();
     }
   } catch (err) {
     console.error('Database column migration error:', err);
@@ -135,6 +145,7 @@ export function resetDB() {
       url TEXT NOT NULL,
       port INTEGER,
       interval INTEGER NOT NULL,
+      retries INTEGER DEFAULT 0,
       webhook_url TEXT,
       group_name TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -145,6 +156,7 @@ export function resetDB() {
       monitor_id INTEGER NOT NULL,
       status TEXT NOT NULL,
       latency INTEGER,
+      retries INTEGER DEFAULT 0,
       timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (monitor_id) REFERENCES monitors (id) ON DELETE CASCADE
     );
@@ -162,7 +174,7 @@ export function resetDB() {
       last_checked TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (monitor_id) REFERENCES monitors (id) ON DELETE CASCADE
     );
-    
+
     CREATE INDEX IF NOT EXISTS idx_heartbeats_monitor_id ON heartbeats(monitor_id);
     CREATE INDEX IF NOT EXISTS idx_heartbeats_timestamp ON heartbeats(timestamp);
     CREATE INDEX IF NOT EXISTS idx_ssl_certificates_monitor_id ON ssl_certificates(monitor_id);
@@ -170,12 +182,17 @@ export function resetDB() {
   `);
 }
 
-export function addMonitor(type, url, interval, name = null, webhookUrl = null, groupName = null) {
+export function addMonitor(type, url, interval, retries = null, name = null, webhookUrl = null, groupName = null) {
   const db = getDB();
 
   // Validate interval
   if (interval < 1 || !Number.isInteger(interval)) {
     throw new Error('Interval must be a positive integer (minimum 1 second).');
+  }
+
+  // Validate retries
+  if (retries < 0 || !Number.isInteger(retries)) {
+    throw new Error('Retries must be an integer (minimum 0).');
   }
 
   if (name) {
@@ -184,16 +201,22 @@ export function addMonitor(type, url, interval, name = null, webhookUrl = null, 
       throw new Error(`Monitor with name '${name}' already exists.`);
     }
   }
-  const stmt = db.prepare('INSERT INTO monitors (type, url, interval, name, webhook_url, group_name) VALUES (?, ?, ?, ?, ?, ?)');
-  return stmt.run(type, url, interval, name, webhookUrl, groupName);
+  const stmt = db.prepare(
+    'INSERT INTO monitors (type, url, interval, retries, name, webhook_url, group_name) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  return stmt.run(type, url, interval, retries, name, webhookUrl, groupName);
 }
 
 export function updateMonitor(id, updates) {
   const db = getDB();
-  const { name, url, type, interval, webhook_url, group_name } = updates;
+  const { name, url, type, interval, retries, webhook_url, group_name } = updates;
 
   if (interval !== undefined && (interval < 1 || !Number.isInteger(interval))) {
     throw new Error('Interval must be a positive integer (minimum 1 second).');
+  }
+
+  if (retries !== undefined && (retries < 0 || !Number.isInteger(retries))) {
+    throw new Error('Retries must be an integer greater than or equal to 0.');
   }
 
   if (name) {
@@ -206,12 +229,34 @@ export function updateMonitor(id, updates) {
   const fields = [];
   const values = [];
 
-  if (name !== undefined) { fields.push('name = ?'); values.push(name); }
-  if (url !== undefined) { fields.push('url = ?'); values.push(url); }
-  if (type !== undefined) { fields.push('type = ?'); values.push(type); }
-  if (interval !== undefined) { fields.push('interval = ?'); values.push(interval); }
-  if (webhook_url !== undefined) { fields.push('webhook_url = ?'); values.push(webhook_url); }
-  if (group_name !== undefined) { fields.push('group_name = ?'); values.push(group_name); }
+  if (name !== undefined) {
+    fields.push('name = ?');
+    values.push(name);
+  }
+  if (url !== undefined) {
+    fields.push('url = ?');
+    values.push(url);
+  }
+  if (type !== undefined) {
+    fields.push('type = ?');
+    values.push(type);
+  }
+  if (interval !== undefined) {
+    fields.push('interval = ?');
+    values.push(interval);
+  }
+  if (retries !== undefined) {
+    fields.push('retries = ?');
+    values.push(retries);
+  }
+  if (webhook_url !== undefined) {
+    fields.push('webhook_url = ?');
+    values.push(webhook_url);
+  }
+  if (group_name !== undefined) {
+    fields.push('group_name = ?');
+    values.push(group_name);
+  }
 
   if (fields.length === 0) return;
 
@@ -242,7 +287,9 @@ export function getMonitorByIdOrName(idOrName) {
   if (byUrl) return byUrl;
 
   const likePattern = `%${s}%`;
-  const fuzzy = db.prepare('SELECT * FROM monitors WHERE lower(name) LIKE lower(?) OR lower(url) LIKE lower(?) LIMIT 1').get(likePattern, likePattern);
+  const fuzzy = db
+    .prepare('SELECT * FROM monitors WHERE lower(name) LIKE lower(?) OR lower(url) LIKE lower(?) LIMIT 1')
+    .get(likePattern, likePattern);
   if (fuzzy) return fuzzy;
 
   const byHost = db.prepare('SELECT * FROM monitors WHERE lower(url) LIKE lower(?) LIMIT 1').get(`%${s}%`);
@@ -250,12 +297,16 @@ export function getMonitorByIdOrName(idOrName) {
 }
 
 export function getHeartbeatsForMonitor(monitorId, limit = 60) {
-  return getDB().prepare('SELECT status, timestamp, latency FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT ?').all(monitorId, limit);
+  return getDB()
+    .prepare(
+      'SELECT status, retries, timestamp, latency FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT ?'
+    )
+    .all(monitorId, limit);
 }
 
-export function logHeartbeat(monitorId, status, latency) {
-  const stmt = getDB().prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)');
-  return stmt.run(monitorId, status, latency);
+export function logHeartbeat(monitorId, status, retries, latency) {
+  const stmt = getDB().prepare('INSERT INTO heartbeats (monitor_id, status, retries, latency) VALUES (?, ?, ?, ?)');
+  return stmt.run(monitorId, status, retries, latency);
 }
 
 export function getStats() {
@@ -263,12 +314,13 @@ export function getStats() {
 
   // Single optimized query to get latest status and aggregate stats for all monitors
   const sql = `
-    SELECT 
+    SELECT
       m.*,
       COUNT(h.id) as total_checks,
       SUM(CASE WHEN h.status = 'up' THEN 1 ELSE 0 END) as success_checks,
       AVG(h.latency) as avg_latency,
       (SELECT status FROM heartbeats WHERE monitor_id = m.id ORDER BY timestamp DESC LIMIT 1) as current_status,
+      (SELECT retries FROM heartbeats WHERE monitor_id = m.id ORDER BY timestamp DESC LIMIT 1) as current_retries,
       (SELECT latency FROM heartbeats WHERE monitor_id = m.id ORDER BY timestamp DESC LIMIT 1) as current_latency,
       (SELECT timestamp FROM heartbeats WHERE monitor_id = m.id ORDER BY timestamp DESC LIMIT 1) as last_check_ts,
       (SELECT timestamp FROM heartbeats WHERE monitor_id = m.id AND status = 'down' ORDER BY timestamp DESC LIMIT 1) as last_down_ts,
@@ -289,18 +341,18 @@ export function getStats() {
   const rows = db.prepare(sql).all();
 
   return rows.map(row => {
-    const uptime = row.total_checks > 0
-      ? ((row.success_checks / row.total_checks) * 100).toFixed(2)
-      : 0;
+    const uptime = row.total_checks > 0 ? ((row.success_checks / row.total_checks) * 100).toFixed(2) : 0;
 
     // Helper to parse SQLite UTC string to Date object
-    const parseDBTimestamp = (ts) => {
+    const parseDBTimestamp = ts => {
       if (!ts) return null;
       return new Date(ts.replace(' ', 'T') + 'Z');
     };
 
     const lastCheckTime = row.last_check_ts
-      ? formatDistanceToNow(parseDBTimestamp(row.last_check_ts), { addSuffix: true })
+      ? formatDistanceToNow(parseDBTimestamp(row.last_check_ts), {
+          addSuffix: true
+        })
       : 'Never';
 
     let lastDowntimeText = 'No downtime';
@@ -310,7 +362,6 @@ export function getStats() {
 
     // If currently down, try to calculate how long it's been down
     if (row.current_status === 'down' && row.last_down_ts) {
-
       lastDowntimeText = `Since ${formatDistanceToNow(parseDBTimestamp(row.last_down_ts), { addSuffix: true })}`;
     }
 
@@ -335,10 +386,12 @@ export function getStats() {
       type: row.type,
       url: row.url,
       interval: row.interval,
+      retries: row.retries,
       groupName: row.group_name,
       uptime: uptime,
       lastDowntime: lastDowntimeText,
       status: row.current_status || 'unknown',
+      current_retries: row.current_retries || 0,
       latency: Math.round(row.current_latency || 0),
       lastCheck: lastCheckTime,
       ssl: sslInfo
@@ -405,15 +458,18 @@ export function getAllSSLCertificates() {
 
 export function getGroups() {
   const db = getDB();
-  return db.prepare(`
-    SELECT group_name, COUNT(*) as count 
-    FROM monitors 
-    WHERE group_name IS NOT NULL AND group_name != '' 
-    GROUP BY group_name 
+  return db
+    .prepare(
+      `
+    SELECT group_name, COUNT(*) as count
+    FROM monitors
+    WHERE group_name IS NOT NULL AND group_name != ''
+    GROUP BY group_name
     ORDER BY group_name
-  `).all();
+  `
+    )
+    .all();
 }
-
 
 export function groupExists(groupName) {
   const db = getDB();
@@ -428,7 +484,9 @@ export function renameGroup(oldName, newName) {
     throw new Error(`Group '${oldName}' does not exist.`);
   }
 
-  const existingNew = db.prepare('SELECT 1 FROM monitors WHERE lower(group_name) = lower(?) AND lower(group_name) != lower(?) LIMIT 1').get(newName, oldName);
+  const existingNew = db
+    .prepare('SELECT 1 FROM monitors WHERE lower(group_name) = lower(?) AND lower(group_name) != lower(?) LIMIT 1')
+    .get(newName, oldName);
   if (existingNew) {
     throw new Error(`Group '${newName}' already exists.`);
   }
@@ -445,15 +503,19 @@ export function deleteGroup(groupName, deleteMonitors = false) {
   }
 
   if (deleteMonitors) {
-    db.prepare(`
-      DELETE FROM heartbeats 
+    db.prepare(
+      `
+      DELETE FROM heartbeats
       WHERE monitor_id IN (SELECT id FROM monitors WHERE lower(group_name) = lower(?))
-    `).run(groupName);
+    `
+    ).run(groupName);
 
-    db.prepare(`
-      DELETE FROM ssl_certificates 
+    db.prepare(
+      `
+      DELETE FROM ssl_certificates
       WHERE monitor_id IN (SELECT id FROM monitors WHERE lower(group_name) = lower(?))
-    `).run(groupName);
+    `
+    ).run(groupName);
 
     return db.prepare('DELETE FROM monitors WHERE lower(group_name) = lower(?)').run(groupName);
   } else {

@@ -56,14 +56,16 @@ jest.unstable_mockModule('../../src/core/db.js', () => {
     initDB: jest.fn().mockResolvedValue(undefined),
     getDB: jest.fn(() => testDb),
     addMonitor: jest.fn((type, url, interval, name, webhook) => {
-      const stmt = testDb.prepare('INSERT INTO monitors (type, url, interval, name, webhook_url) VALUES (?, ?, ?, ?, ?)');
+      const stmt = testDb.prepare(
+        'INSERT INTO monitors (type, url, interval, name, webhook_url) VALUES (?, ?, ?, ?, ?)'
+      );
       const result = stmt.run(type, url, interval, name, webhook || null);
       return result.lastInsertRowid;
     }),
     getMonitors: jest.fn(() => {
       return testDb.prepare('SELECT * FROM monitors').all();
     }),
-    getMonitorByIdOrName: jest.fn((idOrName) => {
+    getMonitorByIdOrName: jest.fn(idOrName => {
       const id = parseInt(idOrName, 10);
       if (!isNaN(id)) {
         return testDb.prepare('SELECT * FROM monitors WHERE id = ?').get(id);
@@ -71,7 +73,9 @@ jest.unstable_mockModule('../../src/core/db.js', () => {
       return testDb.prepare('SELECT * FROM monitors WHERE name = ?').get(idOrName);
     }),
     updateMonitor: jest.fn((id, updates) => {
-      const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      const fields = Object.keys(updates)
+        .map(k => `${k} = ?`)
+        .join(', ');
       const values = Object.values(updates);
       testDb.prepare(`UPDATE monitors SET ${fields} WHERE id = ?`).run(...values, id);
     }),
@@ -84,8 +88,10 @@ jest.unstable_mockModule('../../src/core/db.js', () => {
       const row = testDb.prepare("SELECT value FROM settings WHERE key = 'notifications_enabled'").get();
       return row ? row.value === '1' : true;
     }),
-    setNotificationSettings: jest.fn((enabled) => {
-      testDb.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('notifications_enabled', ?)").run(enabled ? '1' : '0');
+    setNotificationSettings: jest.fn(enabled => {
+      testDb
+        .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('notifications_enabled', ?)")
+        .run(enabled ? '1' : '0');
       return true;
     })
   };
@@ -106,13 +112,13 @@ describe('Delete Command', () => {
     program = new Command();
     program.exitOverride();
     registerDeleteCommand(program);
-    
+
     // Add test monitor
-    testDb.prepare('INSERT INTO monitors (id, type, url, interval, name) VALUES (?, ?, ?, ?, ?)')
+    testDb
+      .prepare('INSERT INTO monitors (id, type, url, interval, name) VALUES (?, ?, ?, ?, ?)')
       .run(1, 'http', 'https://example.com', 60, 'example');
-    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)')
-      .run(1, 'up', 100);
-    
+    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)').run(1, 'up', 100);
+
     originalLog = console.log;
     originalError = console.error;
     consoleLog = [];
@@ -129,42 +135,40 @@ describe('Delete Command', () => {
 
   it('should delete monitor by id', async () => {
     await program.parseAsync(['node', 'test', 'delete', '1']);
-    
+
     const monitors = testDb.prepare('SELECT * FROM monitors').all();
     expect(monitors).toHaveLength(0);
-    
+
     const heartbeats = testDb.prepare('SELECT * FROM heartbeats').all();
     expect(heartbeats).toHaveLength(0);
   });
 
   it('should delete monitor by name', async () => {
     await program.parseAsync(['node', 'test', 'delete', 'example']);
-    
+
     const monitors = testDb.prepare('SELECT * FROM monitors').all();
     expect(monitors).toHaveLength(0);
   });
 
   it('should show error for non-existent monitor', async () => {
     await program.parseAsync(['node', 'test', 'delete', 'nonexistent']);
-    
+
     expect(consoleLog.some(log => log.includes('not found'))).toBe(true);
   });
 
   it('should support del alias', async () => {
     await program.parseAsync(['node', 'test', 'del', '1']);
-    
+
     const monitors = testDb.prepare('SELECT * FROM monitors').all();
     expect(monitors).toHaveLength(0);
   });
 
   it('should delete all heartbeats for the monitor', async () => {
-    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)')
-      .run(1, 'up', 150);
-    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)')
-      .run(1, 'down', 0);
-    
+    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)').run(1, 'up', 150);
+    testDb.prepare('INSERT INTO heartbeats (monitor_id, status, latency) VALUES (?, ?, ?)').run(1, 'down', 0);
+
     await program.parseAsync(['node', 'test', 'delete', '1']);
-    
+
     const heartbeats = testDb.prepare('SELECT * FROM heartbeats').all();
     expect(heartbeats).toHaveLength(0);
   });
@@ -180,7 +184,7 @@ describe('Notifications Command', () => {
     program = new Command();
     program.exitOverride();
     registerNotificationsCommand(program);
-    
+
     originalLog = console.log;
     consoleLog = [];
     console.log = (...args) => consoleLog.push(args.join(' '));
@@ -193,14 +197,14 @@ describe('Notifications Command', () => {
 
   it('should enable notifications', async () => {
     await program.parseAsync(['node', 'test', 'notifications', 'enable']);
-    
+
     const row = testDb.prepare("SELECT value FROM settings WHERE key = 'notifications_enabled'").get();
     expect(row.value).toBe('1');
   });
 
   it('should disable notifications', async () => {
     await program.parseAsync(['node', 'test', 'notifications', 'disable']);
-    
+
     const row = testDb.prepare("SELECT value FROM settings WHERE key = 'notifications_enabled'").get();
     expect(row.value).toBe('0');
   });
@@ -208,20 +212,20 @@ describe('Notifications Command', () => {
   it('should show notification status when enabled', async () => {
     testDb.prepare("INSERT INTO settings (key, value) VALUES ('notifications_enabled', '1')").run();
     await program.parseAsync(['node', 'test', 'notifications', 'status']);
-    
+
     expect(consoleLog.some(log => log.includes('enabled'))).toBe(true);
   });
 
   it('should show notification status when disabled', async () => {
     testDb.prepare("INSERT INTO settings (key, value) VALUES ('notifications_enabled', '0')").run();
     await program.parseAsync(['node', 'test', 'notifications', 'status']);
-    
+
     expect(consoleLog.some(log => log.includes('disabled'))).toBe(true);
   });
 
   it('should support notif alias', async () => {
     await program.parseAsync(['node', 'test', 'notif', 'enable']);
-    
+
     const row = testDb.prepare("SELECT value FROM settings WHERE key = 'notifications_enabled'").get();
     expect(row.value).toBe('1');
   });
@@ -238,10 +242,10 @@ describe('Start/Stop Daemon Logic', () => {
 
   it('should detect existing daemon via PID file', () => {
     fs.writeFileSync(TEST_PID_FILE, process.pid.toString());
-    
+
     const pid = parseInt(fs.readFileSync(TEST_PID_FILE, 'utf-8'));
     expect(pid).toBe(process.pid);
-    
+
     let processExists = false;
     try {
       process.kill(pid, 0);
@@ -254,9 +258,9 @@ describe('Start/Stop Daemon Logic', () => {
 
   it('should detect stale PID file', () => {
     fs.writeFileSync(TEST_PID_FILE, '99999999');
-    
+
     const pid = parseInt(fs.readFileSync(TEST_PID_FILE, 'utf-8'));
-    
+
     let processExists = false;
     try {
       process.kill(pid, 0);
@@ -275,17 +279,17 @@ describe('Start/Stop Daemon Logic', () => {
   it('should create daemon directory if not exists', () => {
     const testDir = path.join(os.tmpdir(), 'uptimekit-test-' + Date.now());
     expect(fs.existsSync(testDir)).toBe(false);
-    
+
     fs.mkdirSync(testDir, { recursive: true });
     expect(fs.existsSync(testDir)).toBe(true);
-    
+
     fs.rmdirSync(testDir);
   });
 
   it('should write PID to file', () => {
     const pid = 12345;
     fs.writeFileSync(TEST_PID_FILE, pid.toString());
-    
+
     const readPid = parseInt(fs.readFileSync(TEST_PID_FILE, 'utf-8'));
     expect(readPid).toBe(pid);
   });
@@ -376,7 +380,11 @@ describe('Monitor Validation', () => {
   describe('SSL hostname validation', () => {
     it('should extract hostname from URL for SSL', () => {
       const url = 'https://example.com/path';
-      const host = url.replace(/^https?:\/\//, '').replace(/\/.+$/, '').split(':')[0].trim();
+      const host = url
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.+$/, '')
+        .split(':')[0]
+        .trim();
       expect(host).toBe('example.com');
     });
 
@@ -452,20 +460,29 @@ describe('Monitor Type Schema', () => {
 describe('Name Generation', () => {
   it('should generate name from domain', () => {
     const url = 'https://example.com/path';
-    let domain = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    let domain = url
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '');
     const name = domain.slice(0, 6);
     expect(name).toBe('exampl');
   });
 
   it('should strip www prefix', () => {
     const url = 'https://www.example.com';
-    let domain = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    let domain = url
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '');
     expect(domain).toBe('example.com');
   });
 
   it('should handle short domain', () => {
     const url = 'https://abc.io';
-    let domain = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    let domain = url
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '');
     const name = domain.slice(0, 6);
     expect(name).toBe('abc.io');
   });
@@ -479,14 +496,20 @@ describe('Name Generation', () => {
 
   it('should handle domain with subdomain', () => {
     const url = 'https://api.example.com';
-    let domain = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    let domain = url
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '');
     const name = domain.slice(0, 6);
     expect(name).toBe('api.ex');
   });
 
   it('should handle IP address URL', () => {
     const url = 'http://192.168.1.1';
-    let domain = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+    let domain = url
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '');
     const name = domain.slice(0, 6);
     expect(name).toBe('192.16');
   });
@@ -512,14 +535,14 @@ describe('Clear Command Logic', () => {
   it('should clear all monitors', () => {
     db.prepare('DELETE FROM heartbeats').run();
     db.prepare('DELETE FROM monitors').run();
-    
+
     const monitors = db.prepare('SELECT * FROM monitors').all();
     expect(monitors).toHaveLength(0);
   });
 
   it('should clear all heartbeats', () => {
     db.prepare('DELETE FROM heartbeats').run();
-    
+
     const heartbeats = db.prepare('SELECT * FROM heartbeats').all();
     expect(heartbeats).toHaveLength(0);
   });
@@ -527,7 +550,7 @@ describe('Clear Command Logic', () => {
   it('should clear heartbeats before monitors (FK constraint)', () => {
     db.prepare('DELETE FROM heartbeats').run();
     db.prepare('DELETE FROM monitors').run();
-    
+
     const monitors = db.prepare('SELECT * FROM monitors').all();
     const heartbeats = db.prepare('SELECT * FROM heartbeats').all();
     expect(monitors).toHaveLength(0);
@@ -602,7 +625,7 @@ describe('Edit Command Validation', () => {
     });
 
     it('should handle string interval parsing', () => {
-      const intervals = { '120': 120, '60': 60, '3600': 3600 };
+      const intervals = { 120: 120, 60: 60, 3600: 3600 };
       Object.entries(intervals).forEach(([str, num]) => {
         expect(parseInt(str, 10)).toBe(num);
       });
@@ -640,7 +663,7 @@ describe('Reset Command Logic', () => {
     db.exec('DELETE FROM heartbeats');
     db.exec('DELETE FROM monitors');
     db.exec('DELETE FROM settings');
-    
+
     expect(db.prepare('SELECT * FROM monitors').all()).toHaveLength(0);
     expect(db.prepare('SELECT * FROM heartbeats').all()).toHaveLength(0);
     expect(db.prepare('SELECT * FROM settings').all()).toHaveLength(0);
@@ -667,9 +690,9 @@ describe('Reset Command Logic', () => {
 
 describe('Status Command Logic', () => {
   it('should determine if idOrName is provided', () => {
-    expect(!!('1')).toBe(true);
-    expect(!!('mymonitor')).toBe(true);
-    expect(!!(undefined)).toBe(false);
+    expect(!!'1').toBe(true);
+    expect(!!'mymonitor').toBe(true);
+    expect(!!undefined).toBe(false);
   });
 
   it('should handle numeric id', () => {
@@ -727,6 +750,7 @@ describe('Group Command Logic', () => {
         url TEXT, 
         type TEXT,
         interval INTEGER,
+        retries INTEGER DEFAULT 0,
         group_name TEXT
       );
       CREATE TABLE heartbeats (
@@ -747,30 +771,53 @@ describe('Group Command Logic', () => {
 
   describe('getGroups', () => {
     it('should return empty array when no groups exist', () => {
-      const groups = db.prepare(`
+      const groups = db
+        .prepare(
+          `
         SELECT group_name, COUNT(*) as count 
         FROM monitors 
         WHERE group_name IS NOT NULL AND group_name != '' 
         GROUP BY group_name
-      `).all();
+      `
+        )
+        .all();
       expect(groups).toEqual([]);
     });
 
     it('should return groups with counts', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('dev1', 'https://dev1.com', 'http', 60, 'dev');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('dev2', 'https://dev2.com', 'http', 60, 'dev');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('prod1', 'https://prod1.com', 'http', 60, 'prod');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'dev1',
+        'https://dev1.com',
+        'http',
+        60,
+        'dev'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'dev2',
+        'https://dev2.com',
+        'http',
+        60,
+        'dev'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'prod1',
+        'https://prod1.com',
+        'http',
+        60,
+        'prod'
+      );
 
-      const groups = db.prepare(`
+      const groups = db
+        .prepare(
+          `
         SELECT group_name, COUNT(*) as count 
         FROM monitors 
         WHERE group_name IS NOT NULL AND group_name != '' 
         GROUP BY group_name 
         ORDER BY group_name
-      `).all();
+      `
+        )
+        .all();
 
       expect(groups).toHaveLength(2);
       expect(groups[0]).toEqual({ group_name: 'dev', count: 2 });
@@ -778,17 +825,31 @@ describe('Group Command Logic', () => {
     });
 
     it('should not include ungrouped monitors in groups', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('grouped', 'https://grouped.com', 'http', 60, 'dev');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('ungrouped', 'https://ungrouped.com', 'http', 60, null);
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'grouped',
+        'https://grouped.com',
+        'http',
+        60,
+        'dev'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'ungrouped',
+        'https://ungrouped.com',
+        'http',
+        60,
+        null
+      );
 
-      const groups = db.prepare(`
+      const groups = db
+        .prepare(
+          `
         SELECT group_name, COUNT(*) as count 
         FROM monitors 
         WHERE group_name IS NOT NULL AND group_name != '' 
         GROUP BY group_name
-      `).all();
+      `
+        )
+        .all();
 
       expect(groups).toHaveLength(1);
       expect(groups[0].count).toBe(1);
@@ -797,16 +858,26 @@ describe('Group Command Logic', () => {
 
   describe('groupExists', () => {
     it('should return true for existing group', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('test', 'https://test.com', 'http', 60, 'dev');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'test',
+        'https://test.com',
+        'http',
+        60,
+        'dev'
+      );
 
       const exists = db.prepare('SELECT 1 FROM monitors WHERE lower(group_name) = lower(?) LIMIT 1').get('dev');
       expect(!!exists).toBe(true);
     });
 
     it('should return true case-insensitively', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('test', 'https://test.com', 'http', 60, 'dev');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'test',
+        'https://test.com',
+        'http',
+        60,
+        'dev'
+      );
 
       const exists = db.prepare('SELECT 1 FROM monitors WHERE lower(group_name) = lower(?) LIMIT 1').get('DEV');
       expect(!!exists).toBe(true);
@@ -820,12 +891,24 @@ describe('Group Command Logic', () => {
 
   describe('renameGroup', () => {
     it('should rename all monitors in a group', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('dev1', 'https://dev1.com', 'http', 60, 'dev');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('dev2', 'https://dev2.com', 'http', 60, 'dev');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'dev1',
+        'https://dev1.com',
+        'http',
+        60,
+        'dev'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'dev2',
+        'https://dev2.com',
+        'http',
+        60,
+        'dev'
+      );
 
-      const result = db.prepare('UPDATE monitors SET group_name = ? WHERE lower(group_name) = lower(?)').run('development', 'dev');
+      const result = db
+        .prepare('UPDATE monitors SET group_name = ? WHERE lower(group_name) = lower(?)')
+        .run('development', 'dev');
       expect(result.changes).toBe(2);
 
       const monitors = db.prepare('SELECT * FROM monitors WHERE group_name = ?').all('development');
@@ -833,8 +916,13 @@ describe('Group Command Logic', () => {
     });
 
     it('should handle case change in group name', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('test', 'https://test.com', 'http', 60, 'dev');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'test',
+        'https://test.com',
+        'http',
+        60,
+        'dev'
+      );
 
       db.prepare('UPDATE monitors SET group_name = ? WHERE lower(group_name) = lower(?)').run('Dev', 'dev');
 
@@ -845,8 +933,13 @@ describe('Group Command Logic', () => {
 
   describe('deleteGroup', () => {
     it('should ungroup monitors when deleteMonitors is false', () => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('test', 'https://test.com', 'http', 60, 'dev');
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'test',
+        'https://test.com',
+        'http',
+        60,
+        'dev'
+      );
 
       db.prepare('UPDATE monitors SET group_name = NULL WHERE lower(group_name) = lower(?)').run('dev');
 
@@ -855,11 +948,14 @@ describe('Group Command Logic', () => {
     });
 
     it('should delete monitors when deleteMonitors is true', () => {
-      const result = db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
+      const result = db
+        .prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
         .run('test', 'https://test.com', 'http', 60, 'dev');
       db.prepare('INSERT INTO heartbeats (monitor_id) VALUES (?)').run(result.lastInsertRowid);
 
-      db.prepare('DELETE FROM heartbeats WHERE monitor_id IN (SELECT id FROM monitors WHERE lower(group_name) = lower(?))').run('dev');
+      db.prepare(
+        'DELETE FROM heartbeats WHERE monitor_id IN (SELECT id FROM monitors WHERE lower(group_name) = lower(?))'
+      ).run('dev');
       db.prepare('DELETE FROM monitors WHERE lower(group_name) = lower(?)').run('dev');
 
       const monitors = db.prepare('SELECT * FROM monitors').all();
@@ -871,12 +967,27 @@ describe('Group Command Logic', () => {
 
   describe('getMonitorsByGroup', () => {
     beforeEach(() => {
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('dev1', 'https://dev1.com', 'http', 60, 'dev');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('prod1', 'https://prod1.com', 'http', 60, 'prod');
-      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)')
-        .run('ungrouped', 'https://ungrouped.com', 'http', 60, null);
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'dev1',
+        'https://dev1.com',
+        'http',
+        60,
+        'dev'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'prod1',
+        'https://prod1.com',
+        'http',
+        60,
+        'prod'
+      );
+      db.prepare('INSERT INTO monitors (name, url, type, interval, group_name) VALUES (?, ?, ?, ?, ?)').run(
+        'ungrouped',
+        'https://ungrouped.com',
+        'http',
+        60,
+        null
+      );
     });
 
     it('should return monitors in a specific group', () => {
@@ -909,6 +1020,7 @@ describe('Add Monitor with Group', () => {
         type TEXT NOT NULL,
         url TEXT NOT NULL,
         interval INTEGER DEFAULT 60,
+        retries INTEGER DEFAULT 0,
         name TEXT,
         webhook_url TEXT,
         group_name TEXT
@@ -921,28 +1033,67 @@ describe('Add Monitor with Group', () => {
   });
 
   it('should add monitor with group', () => {
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://dev.example.com', 60, 'dev-api', 'dev');
+    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)').run(
+      'http',
+      'https://dev.example.com',
+      60,
+      'dev-api',
+      'dev'
+    );
+
+    const monitor = db.prepare('SELECT * FROM monitors WHERE name = ?').get('dev-api');
+    expect(monitor.group_name).toBe('dev');
+  });
+
+  it('should add monitor with group and retries', () => {
+    db.prepare('INSERT INTO monitors (type, url, interval, retries, name, group_name) VALUES (?, ?, ?, ?, ?, ?)').run(
+      'http',
+      'https://dev.example.com',
+      60,
+      3,
+      'dev-api',
+      'dev'
+    );
 
     const monitor = db.prepare('SELECT * FROM monitors WHERE name = ?').get('dev-api');
     expect(monitor.group_name).toBe('dev');
   });
 
   it('should add monitor without group', () => {
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://example.com', 60, 'api', null);
+    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)').run(
+      'http',
+      'https://example.com',
+      60,
+      'api',
+      null
+    );
 
     const monitor = db.prepare('SELECT * FROM monitors WHERE name = ?').get('api');
     expect(monitor.group_name).toBeNull();
   });
 
   it('should allow same group for multiple monitors', () => {
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://dev1.com', 60, 'dev1', 'dev');
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://dev2.com', 60, 'dev2', 'dev');
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://dev3.com', 60, 'dev3', 'dev');
+    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)').run(
+      'http',
+      'https://dev1.com',
+      60,
+      'dev1',
+      'dev'
+    );
+    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)').run(
+      'http',
+      'https://dev2.com',
+      60,
+      'dev2',
+      'dev'
+    );
+    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)').run(
+      'http',
+      'https://dev3.com',
+      60,
+      'dev3',
+      'dev'
+    );
 
     const monitors = db.prepare('SELECT * FROM monitors WHERE group_name = ?').all('dev');
     expect(monitors).toHaveLength(3);
@@ -960,13 +1111,20 @@ describe('Edit Monitor Group', () => {
         type TEXT NOT NULL,
         url TEXT NOT NULL,
         interval INTEGER DEFAULT 60,
+        retries INTEGER DEFAULT 0,
         name TEXT,
         webhook_url TEXT,
         group_name TEXT
       );
     `);
-    db.prepare('INSERT INTO monitors (type, url, interval, name, group_name) VALUES (?, ?, ?, ?, ?)')
-      .run('http', 'https://example.com', 60, 'test', 'dev');
+    db.prepare('INSERT INTO monitors (type, url, interval, retries, name, group_name) VALUES (?, ?, ?, ?, ?, ?)').run(
+      'http',
+      'https://example.com',
+      60,
+      3,
+      'test',
+      'dev'
+    );
   });
 
   afterEach(() => {
@@ -990,7 +1148,7 @@ describe('Edit Monitor Group', () => {
   it('should handle "none" as removing from group', () => {
     const input = 'none';
     const groupName = input.toLowerCase() === 'none' ? null : input;
-    
+
     db.prepare('UPDATE monitors SET group_name = ? WHERE name = ?').run(groupName, 'test');
 
     const monitor = db.prepare('SELECT * FROM monitors WHERE name = ?').get('test');

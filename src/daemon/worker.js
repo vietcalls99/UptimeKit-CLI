@@ -1,5 +1,11 @@
 import { initDB, getMonitors, logHeartbeat, getNotificationSettings, upsertSSLCertificate } from '../core/db.js';
-import { notifyMonitorDown, notifyMonitorUp, notifySSLExpiring, notifySSLExpired, notifySSLValid } from '../core/notifier.js';
+import {
+  notifyMonitorDown,
+  notifyMonitorUp,
+  notifySSLExpiring,
+  notifySSLExpired,
+  notifySSLValid
+} from '../core/notifier.js';
 import axios from 'axios';
 import ping from 'ping';
 import dns from 'dns/promises';
@@ -35,8 +41,8 @@ async function checkSSLCertificate(hostname, port = 443) {
         const daysRemaining = Math.floor((validTo - now) / (1000 * 60 * 60 * 24));
 
         resolve({
-          issuer: cert.issuer ? (cert.issuer.O || cert.issuer.CN || 'Unknown') : 'Unknown',
-          subject: cert.subject ? (cert.subject.CN || cert.subject.O || hostname) : hostname,
+          issuer: cert.issuer ? cert.issuer.O || cert.issuer.CN || 'Unknown' : 'Unknown',
+          subject: cert.subject ? cert.subject.CN || cert.subject.O || hostname : hostname,
           validFrom: validFrom.toISOString(),
           validTo: validTo.toISOString(),
           daysRemaining: daysRemaining,
@@ -50,7 +56,7 @@ async function checkSSLCertificate(hostname, port = 443) {
       }
     });
 
-    socket.on('error', (err) => {
+    socket.on('error', err => {
       reject(err);
     });
 
@@ -64,11 +70,15 @@ async function checkSSLCertificate(hostname, port = 443) {
 async function checkMonitor(monitor) {
   const start = Date.now();
   let status = 'down';
+  let retries = 0;
   let latency = 0;
 
   try {
     if (monitor.type === 'http') {
-      const res = await axios.get(monitor.url, { timeout: 5000, validateStatus: () => true });
+      const res = await axios.get(monitor.url, {
+        timeout: 5000,
+        validateStatus: () => true
+      });
       if (res.status >= 200 && res.status < 300) {
         status = 'up';
       }
@@ -119,38 +129,54 @@ async function checkMonitor(monitor) {
     console.error(`Check failed for monitor ${monitor.name || monitor.url} (${monitor.type}):`, error.message);
   }
 
-  // Get previous status to detect changes
-  const monitorData = activeMonitors.get(monitor.id);
-  const previousStatus = monitorData?.lastStatus;
+  // Get previous status and retry state
+  const monitorData = activeMonitors.get(monitor.id) || {};
+  const previousStatus = monitorData.lastStatus;
+  const previousRetries = monitorData.lastRetries || 0;
+
+  if (status === 'down') {
+    retries = previousStatus === 'down' ? previousRetries + 1 : 1;
+  } else {
+    retries = 0;
+  }
 
   // Log heartbeat
   try {
-    logHeartbeat(monitor.id, status, Math.round(latency));
+    logHeartbeat(monitor.id, status, retries, Math.round(latency));
   } catch (err) {
     console.error('Failed to log heartbeat:', err);
   }
 
-  // Send notifications on status change
-  if (previousStatus && previousStatus !== status) {
-    const notificationsEnabled = getNotificationSettings();
-    if (notificationsEnabled) {
-      if (monitor.type === 'ssl') {
-        // SSL-specific notifications
+  const notificationsEnabled = getNotificationSettings();
+
+  if (notificationsEnabled) {
+    if (monitor.type === 'ssl') {
+      // SSL-specific notifications
+      if (previousStatus && previousStatus !== status) {
         if (status === 'down') {
           notifySSLExpired(monitor);
         } else if (status === 'up') {
           notifySSLValid(monitor);
         }
-      } else {
-        // Regular monitor notifications
-        if (status === 'down') {
-          notifyMonitorDown(monitor);
-        } else if (status === 'up') {
-          notifyMonitorUp(monitor);
-        }
+      }
+    } else {
+      if (status === 'down' && previousStatus !== 'down' && (monitor.retries === 0 || retries >= monitor.retries)) {
+        notifyMonitorDown(monitor);
+      }
+
+      if (status === 'up' && previousStatus === 'down') {
+        notifyMonitorUp(monitor);
       }
     }
   }
+
+  activeMonitors.set(monitor.id, {
+    ...monitorData,
+    lastStatus: status,
+    lastRetries: retries,
+    intervalId: monitorData.intervalId,
+    monitor
+  });
 
   if (monitor.type === 'ssl' && monitor._sslCertInfo && status === 'up') {
     const notificationsEnabled = getNotificationSettings();
@@ -158,7 +184,6 @@ async function checkMonitor(monitor) {
       const days = monitor._sslCertInfo.daysRemaining;
       const monitorData = activeMonitors.get(monitor.id);
       const lastNotifiedThreshold = monitorData?.lastSSLNotifiedThreshold || 0;
-
 
       const thresholds = [30, 14, 7, 3, 1];
       for (const threshold of thresholds) {
@@ -176,6 +201,7 @@ async function checkMonitor(monitor) {
   // Update last status
   if (monitorData) {
     monitorData.lastStatus = status;
+    monitorData.lastRetries = retries;
   }
 }
 
@@ -189,7 +215,8 @@ function startMonitorLoop(monitor, initialStatus = null) {
   activeMonitors.set(monitor.id, {
     intervalId,
     monitor,
-    lastStatus: initialStatus // Track last known status
+    lastStatus: initialStatus, // Track last known status
+    lastRetries: 0 // Track last known retries
   });
 }
 
@@ -212,7 +239,11 @@ async function refreshMonitors() {
         startMonitorLoop(monitor);
       } else {
         const current = activeMonitors.get(monitor.id);
-        if (current.monitor.interval !== monitor.interval || current.monitor.url !== monitor.url || current.monitor.type !== monitor.type) {
+        if (
+          current.monitor.interval !== monitor.interval ||
+          current.monitor.url !== monitor.url ||
+          current.monitor.type !== monitor.type
+        ) {
           clearInterval(current.intervalId);
           startMonitorLoop(monitor, current.lastStatus);
         }

@@ -10,10 +10,12 @@ function renderSparkline(values, width = 60) {
   const min = Math.min(...v);
   const range = max - min || 1;
 
-  return v.map(num => {
-    const p = Math.floor(((num - min) / range) * (bars.length - 1));
-    return bars[p] || bars[0];
-  }).join('');
+  return v
+    .map(num => {
+      const p = Math.floor(((num - min) / range) * (bars.length - 1));
+      return bars[p] || bars[0];
+    })
+    .join('');
 }
 
 describe('Sparkline Renderer', () => {
@@ -60,7 +62,9 @@ describe('Sparkline Renderer', () => {
   });
 
   it('respects width parameter', () => {
-    const values = Array(100).fill(0).map((_, i) => i);
+    const values = Array(100)
+      .fill(0)
+      .map((_, i) => i);
     const result = renderSparkline(values, 20);
     expect(result.length).toBe(20);
   });
@@ -178,32 +182,19 @@ describe('Uptime Calculation', () => {
   });
 
   it('calculates correct percentage', () => {
-    const heartbeats = [
-      { status: 'up' },
-      { status: 'up' },
-      { status: 'up' },
-      { status: 'down' }
-    ];
+    const heartbeats = [{ status: 'up' }, { status: 'up' }, { status: 'up' }, { status: 'down' }];
     expect(calculateUptime(heartbeats)).toBe('75.00');
   });
 
   it('handles mixed statuses', () => {
-    const heartbeats = [
-      { status: 'up' },
-      { status: 'down' },
-      { status: 'up' },
-      { status: 'down' },
-      { status: 'up' }
-    ];
+    const heartbeats = [{ status: 'up' }, { status: 'down' }, { status: 'up' }, { status: 'down' }, { status: 'up' }];
     expect(calculateUptime(heartbeats)).toBe('60.00');
   });
 });
 
 describe('Latency Statistics', () => {
   function calculateLatencyStats(heartbeats) {
-    const latencies = heartbeats
-      .filter(h => typeof h.latency === 'number')
-      .map(h => h.latency);
+    const latencies = heartbeats.filter(h => typeof h.latency === 'number').map(h => h.latency);
 
     if (latencies.length === 0) {
       return { min: 0, max: 0, avg: 0, p95: 0 };
@@ -235,24 +226,14 @@ describe('Latency Statistics', () => {
   });
 
   it('calculates correct min/max', () => {
-    const heartbeats = [
-      { latency: 50 },
-      { latency: 150 },
-      { latency: 100 },
-      { latency: 200 },
-      { latency: 75 }
-    ];
+    const heartbeats = [{ latency: 50 }, { latency: 150 }, { latency: 100 }, { latency: 200 }, { latency: 75 }];
     const stats = calculateLatencyStats(heartbeats);
     expect(stats.min).toBe(50);
     expect(stats.max).toBe(200);
   });
 
   it('calculates correct average', () => {
-    const heartbeats = [
-      { latency: 100 },
-      { latency: 200 },
-      { latency: 300 }
-    ];
+    const heartbeats = [{ latency: 100 }, { latency: 200 }, { latency: 300 }];
     const stats = calculateLatencyStats(heartbeats);
     expect(stats.avg).toBe(200);
   });
@@ -270,7 +251,9 @@ describe('Latency Statistics', () => {
   });
 
   it('calculates p95 correctly', () => {
-    const heartbeats = Array(20).fill(0).map((_, i) => ({ latency: (i + 1) * 10 }));
+    const heartbeats = Array(20)
+      .fill(0)
+      .map((_, i) => ({ latency: (i + 1) * 10 }));
     const stats = calculateLatencyStats(heartbeats);
     expect(stats.p95).toBe(200);
   });

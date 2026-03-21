@@ -30,12 +30,15 @@ function isDaemonRunning() {
 const program = new Command();
 
 program.configureOutput({
-  writeErr: (str) => {
+  writeErr: str => {
     if (str.includes("option '-t, --type") && str.includes('argument missing')) {
       process.stderr.write(str + '\nAvailable types: http, icmp, dns\n');
       return;
     }
-    if (str.toLowerCase().includes("missing required argument 'url'") || str.toLowerCase().includes("missing required argument \"url\"")) {
+    if (
+      str.toLowerCase().includes("missing required argument 'url'") ||
+      str.toLowerCase().includes('missing required argument "url"')
+    ) {
       process.stderr.write(str + '\nExample: uptimekit add https://example2.com -t http -i 30 -n newsite\n');
       return;
     }
@@ -51,19 +54,32 @@ program
   .description('UptimeKit CLI - Monitor your services from the terminal')
   .version(version, '-v, --version');
 
-registerStartCommand(program);  // alias
-registerStopCommand(program);   // alias
-registerAddCommand(program);    // alias
+registerStartCommand(program); // alias
+registerStopCommand(program); // alias
+registerAddCommand(program); // alias
 registerStatusCommand(program); // alias
 registerDeleteCommand(program); // alias
-registerClearCommand(program);  // alias
+registerClearCommand(program); // alias
 registerResetCommand(program);
 registerEditCommand(program);
 registerNotificationsCommand(program);
 registerGroupCommand(program);
 
 // gotta make sure the daemon is actually running
-const allowedIfNotRunning = ['help', 'start', '-v', '--version', '-h', '--help', 'reset', 'clear', 'notifications', 'notif', 'group', 'grp'];
+const allowedIfNotRunning = [
+  'help',
+  'start',
+  '-v',
+  '--version',
+  '-h',
+  '--help',
+  'reset',
+  'clear',
+  'notifications',
+  'notif',
+  'group',
+  'grp'
+];
 const userCmd = process.argv[2];
 if (!isDaemonRunning() && userCmd && !allowedIfNotRunning.includes(userCmd)) {
   console.log('UptimeKit is not running. Please start it first using "upkit start".');

@@ -6,7 +6,7 @@ export function registerDeleteCommand(program) {
     .command('delete <target>')
     .alias('del')
     .description('Delete a monitor by id or name')
-    .action(async (target) => {
+    .action(async target => {
       await initDB();
       const monitors = getMonitors();
       let monitor = null;
@@ -35,7 +35,7 @@ export function registerDeleteCommand(program) {
           db.prepare('DELETE FROM ssl_certificates WHERE monitor_id = ?').run(monitor.id);
         } catch (err) {
           console.log(err);
-          console.log('If you are on verison  1.2.20 below, ignore this error')
+          console.log('If you are on verison  1.2.20 below, ignore this error');
         }
 
         db.prepare('DELETE FROM monitors WHERE id = ?').run(monitor.id);

@@ -7,8 +7,8 @@ exports[`Dashboard Component Snapshots should maintain consistent column widths 
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   VeryLongMoni -        very-long...le.http   ✔ UP   100ms   99.99%    None                │ │
 │ │     torNameThatS          com                                                                │ │
@@ -68,8 +68,8 @@ exports[`Dashboard Component Snapshots should render mixed regular and SSL monit
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   Main Site    -        mainsite.com   http   ✔ UP   95ms    99.95%    None                │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -109,8 +109,8 @@ exports[`Dashboard Component Snapshots should render with multiple monitors (mix
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   Website      -        example.com    http   ✔ UP   120ms   99.99%    None                │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -130,8 +130,8 @@ exports[`Dashboard Component Snapshots should render with single HTTP monitor DO
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   Example      -        example.com    http   ✖ DOWN 0ms     85.00%    5 minutes ago       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -147,8 +147,8 @@ exports[`Dashboard Component Snapshots should render with single HTTP monitor UP
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   Example      -        example.com    http   ✔ UP   150ms   99.50%    None                │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
@@ -164,8 +164,8 @@ exports[`Dashboard Component Snapshots should show correct counts in header (up/
 │                                                                                                  │
 │ Uptime Monitors                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ #   Name         Group    URL            Type   Status Latency Uptime    Last Downtime       │ │
-│ │                                                                (24h)                         │ │
+│ │ #   Name         Group    URL            Type   Status  Latency  Uptime    Last Downtime     │ │
+│ │                                                                  (24h)                       │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 │ │ 1   Up1          -        up1.com        http   ✔ UP   100ms   100%      None                │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
